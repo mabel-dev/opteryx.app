@@ -3,7 +3,12 @@ from typing import Literal
 from fastapi import FastAPI, Query
 from pydantic import BaseModel
 
+from app.api.v2.snowflake_statements import router as snowflake_router
+
 app = FastAPI(title="Opteryx App - Basic API")
+
+# Include Snowflake-compatible statement API router
+app.include_router(snowflake_router)
 
 
 class QueryRequest(BaseModel):
