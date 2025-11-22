@@ -1,24 +1,47 @@
-from fastapi import FastAPI, Response
-import logging
+from typing import Literal
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from fastapi import FastAPI, Query
+from pydantic import BaseModel
 
-app = FastAPI(title="opteryx.app - minimal example")
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting opteryx.app FastAPI application")
-
-@app.get("/")
-async def read_root():
-    return {"message": "Hello from opteryx.app!"}
-
-@app.get("/health")
-async def health_check():
-    return Response(content="ok", media_type="text/plain")
+app = FastAPI(title="Opteryx App - Basic API")
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, log_level="info")
+class QueryRequest(BaseModel):
+    row_count: Literal[100, 1000, 10000] = 100
+    text: str
+
+
+@app.get("/", summary="Health / root")
+def root():
+    return {"status": "ok"}
+
+
+@app.get(
+    "/query",
+    summary="Submit SQL statement via query parameters",
+    description="Accepts `row_count` (one of 100, 1000, 10000; default 100) and `text` (SQL statement) as query parameters.",
+)
+def get_query(
+    row_count: Literal[100, 1000, 10000] = Query(
+        100, description="Row count (one of 100, 1000, 10000)"
+    ),
+    text: str = Query(..., description="SQL statement text"),
+):
+    """
+    Returns a simple JSON thanking the user for the input.
+    This endpoint is accessible via the Swagger UI at /docs.
+    """
+    return {"message": "Thank you for your input."}
+
+
+@app.post(
+    "/query",
+    summary="Submit SQL statement via JSON body",
+    description="Accepts a JSON body with `row_count` and `text`. `row_count` must be one of 100, 1000 or 10000.",
+)
+def post_query(payload: QueryRequest):
+    """
+    An alternative POST endpoint (useful if the SQL is large or you prefer a JSON body).
+    Also returns a simple JSON thanking the user for the input.
+    """
+    return {"message": "Thank you for your input."}
