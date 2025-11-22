@@ -29,6 +29,3 @@ gcloud builds submit --tag gcr.io/$PROJECT/$IMAGE_NAME
 gcloud run deploy $IMAGE_NAME --image gcr.io/$PROJECT/$IMAGE_NAME --platform managed --region $REGION --allow-unauthenticated
 ```
 
-## GitHub Actions (template)
-
-The repository includes a workflow template that shows how to deploy to Cloud Run from CI. It requires the following repository secrets: `GCP_PROJECT`, `GCP_SA_KEY` (JSON service account key), `CLOUD_RUN_SERVICE`, and `REGION`. See the workflow file for details.
