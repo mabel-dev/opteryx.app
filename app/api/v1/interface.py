@@ -7,13 +7,13 @@ These endpoints validate input/output using Pydantic models but return HTTP 501
 
 To wire this router into the main application, add this to your app/main.py:
 
-    from app.api.v2.snowflake_statements import router as snowflake_router
-    app.include_router(snowflake_router)
+    from app.api.v1.interface import router as data_router
+    app.include_router(data_router)
 
 Endpoints:
-- POST /api/v2/statements - Create and execute a new SQL statement
-- GET /api/v2/statements/{statementHandle} - Get the status of a statement
-- POST /api/v2/statements/{statementHandle}/cancel - Cancel a running statement
+- POST /api/v1/statements - Create and execute a new SQL statement
+- GET /api/v1/statements/{statementHandle} - Get the status of a statement
+- POST /api/v1/statements/{statementHandle}/cancel - Cancel a running statement
 """
 
 from datetime import datetime, timezone
@@ -22,7 +22,7 @@ from uuid import uuid4
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from app.api.v2.models import (
+from app.api.v1.models import (
     StatementCancelResponse,
     StatementCreateRequest,
     StatementCreateResponse,
@@ -30,7 +30,7 @@ from app.api.v2.models import (
     StatementStatusResponse,
 )
 
-router = APIRouter(prefix="/api/v2", tags=["Snowflake Statements"])
+router = APIRouter(prefix="/api/v1", tags=["Statements"])
 
 
 @router.post(
