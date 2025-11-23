@@ -1,28 +1,20 @@
 """
-Snowflake-compatible statement API endpoints.
+Snowflake-compatible statement API endpoints for the `data` service.
 
-This module implements functionless stubs for the Snowflake statement API.
-These endpoints validate input/output using Pydantic models but return HTTP 501
-(Not Implemented) to indicate that the functionality is not yet available.
-
-To wire this router into the main application, add this to your app/main.py:
-
-    from app.api.v1.interface import router as data_router
-    app.include_router(data_router)
-
-Endpoints:
-- POST /api/v1/statements - Create and execute a new SQL statement
-- GET /api/v1/statements/{statementHandle} - Get the status of a statement
-- POST /api/v1/statements/{statementHandle}/cancel - Cancel a running statement
+This is a copy of the existing `app.api.v1.interface` module but rewritten
+to live under the `data` package so the service is exposed as
+`data.opteryx.app` in your monorepo layout.
 """
 
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
 from fastapi.responses import JSONResponse
 
-from app.api.v1.models import (
+from data.auth.deps import require_bearer_token
+
+from data.api.v1.models import (
     StatementCancelResponse,
     StatementCreateRequest,
     StatementCreateResponse,
@@ -30,7 +22,7 @@ from app.api.v1.models import (
     StatementStatusResponse,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["Statements"])
+router = APIRouter(prefix="/api/v1", tags=["Statements"], dependencies=[Depends(require_bearer_token)])
 
 
 @router.post(
@@ -41,21 +33,6 @@ router = APIRouter(prefix="/api/v1", tags=["Statements"])
     description="Submit a SQL statement for execution. This is a functionless stub that validates input but does not execute queries.",
 )
 async def create_statement(request: StatementCreateRequest) -> JSONResponse:
-    """
-    Create a new SQL statement execution.
-
-    This is a functionless stub that:
-    - Validates the request payload using Pydantic
-    - Generates a sample response with proper structure
-    - Returns HTTP 501 (Not Implemented)
-
-    Args:
-        request: Statement creation request containing SQL and parameters
-
-    Returns:
-        JSONResponse with StatementCreateResponse structure and 501 status
-    """
-    # Generate a sample response
     sample_response = StatementCreateResponse(
         statementHandle=str(uuid4()),
         status=StatementStatus(
@@ -79,21 +56,6 @@ async def create_statement(request: StatementCreateRequest) -> JSONResponse:
     description="Retrieve the execution status of a previously submitted statement. This is a functionless stub.",
 )
 async def get_statement_status(statementHandle: str) -> JSONResponse:
-    """
-    Get the status of a SQL statement execution.
-
-    This is a functionless stub that:
-    - Validates the statement handle parameter
-    - Generates a sample response with proper structure
-    - Returns HTTP 501 (Not Implemented)
-
-    Args:
-        statementHandle: Unique identifier for the statement
-
-    Returns:
-        JSONResponse with StatementStatusResponse structure and 501 status
-    """
-    # Generate a sample response
     sample_response = StatementStatusResponse(
         statementHandle=statementHandle,
         status=StatementStatus(
@@ -119,21 +81,6 @@ async def get_statement_status(statementHandle: str) -> JSONResponse:
     description="Cancel a running SQL statement. This is a functionless stub.",
 )
 async def cancel_statement(statementHandle: str) -> JSONResponse:
-    """
-    Cancel a running SQL statement execution.
-
-    This is a functionless stub that:
-    - Validates the statement handle parameter
-    - Generates a sample response with proper structure
-    - Returns HTTP 501 (Not Implemented)
-
-    Args:
-        statementHandle: Unique identifier for the statement to cancel
-
-    Returns:
-        JSONResponse with StatementCancelResponse structure and 501 status
-    """
-    # Generate a sample response
     sample_response = StatementCancelResponse(
         statementHandle=statementHandle,
         cancelled=False,

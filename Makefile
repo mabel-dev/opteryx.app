@@ -18,9 +18,18 @@ install:
 	fi; \
 	"$(PIP)" install --upgrade pip setuptools wheel; \
 	"$(PIP)" install uv; \
-	"$(UV)" pip install -r pyproject.toml
+	# Install runtime deps directly into the venv so dev run works reliably
+	"$(PIP)" install fastapi uvicorn[standard] python-jose[cryptography] cryptography requests python-multipart
 
 run: install
-	@echo "Starting application (loads .env if present) using virtualenv '$(VENV)'..."
+	@echo "Starting auth and data services (loads .env if present) using virtualenv '$(VENV)'..."
 	@set -a; [ -f .env ] && . .env || true; set +a; \
-	"$(UVICORN)" app.main:app --reload --host 0.0.0.0 --port $${PORT:-8000}
+	# compute URLs (fall back to provided PORT or service defaults)
+	AUTH_URL=http://localhost:$${AUTH_PORT:-$${PORT:-8081}}; \
+	DATA_URL=http://localhost:$${DATA_PORT:-$${PORT:-8000}}; \
+	echo "AUTH: $$AUTH_URL"; \
+	echo "DATA: $$DATA_URL"; \
+	# start services in background and wait (shell expands ${...:-...})
+	"$(UVICORN)" auth.main:app --reload --host 0.0.0.0 --port $${AUTH_PORT:-$${PORT:-8081}} & \
+	"$(UVICORN)" data.main:app --reload --host 0.0.0.0 --port $${DATA_PORT:-$${PORT:-8000}} & \
+	wait
