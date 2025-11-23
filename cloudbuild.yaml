@@ -12,7 +12,7 @@ steps:
   # Build `data` image when _SERVICE is 'data' or 'all'
   - id: BuildData
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: '/busybox/sh'
+    entrypoint: 'sh'
     args:
       - '-c'
       - >-
@@ -28,7 +28,7 @@ steps:
   # Build `auth` image when _SERVICE is 'auth' or 'all'
   - id: BuildAuth
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: '/busybox/sh'
+    entrypoint: 'sh'
     args:
       - '-c'
       - >-
