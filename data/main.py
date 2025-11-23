@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.v1.interface import router as data_router
+from data.api.v1.interface import router as data_router
 
 app = FastAPI(title="Opteryx Data API")
 

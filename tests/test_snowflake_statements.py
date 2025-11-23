@@ -10,7 +10,7 @@ These tests verify that the endpoint stubs:
 import pytest
 from starlette.testclient import TestClient
 
-from app.main import app
+from data.main import app
 
 client = TestClient(app)
 
