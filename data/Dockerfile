@@ -9,10 +9,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project pyproject and install with uv
-COPY pyproject.toml ./
+# Copy project pyproject from repository root and install with uv.
+# NOTE: when building this Dockerfile directly, set the build context to the
+# repository root so `../pyproject.toml` is available. Example:
+#   docker build -f data/Dockerfile -t opteryx-data .
+COPY ../pyproject.toml ./
 RUN pip install --no-cache-dir uv \
-    && uv sync || (echo "uv sync failed; ensure pyproject.toml is present and valid" && exit 1)
+    && uv sync || (echo "uv sync failed; ensure pyproject.toml is present and valid and you built with the repo root as context" && exit 1)
 
 # Copy service code
 COPY data ./data
