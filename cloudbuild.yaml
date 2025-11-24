@@ -16,7 +16,7 @@ steps:
     name: 'gcr.io/kaniko-project/executor:latest'
     args:
       - --dockerfile=data/Dockerfile
-      - --context=dir://$(pwd)
+      - --context=dir://workspace
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-data:$SHORT_SHA
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-data:latest
       - --cache=true
@@ -26,7 +26,7 @@ steps:
     name: 'gcr.io/kaniko-project/executor:latest'
     args:
       - --dockerfile=auth/Dockerfile
-      - --context=dir://$(pwd)
+      - --context=dir://workspace
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-auth:$SHORT_SHA
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-auth:latest
       - --cache=true
@@ -35,7 +35,7 @@ steps:
     name: 'gcr.io/kaniko-project/executor:latest'
     args:
       - --dockerfile=web/Dockerfile
-      - --context=dir://$(pwd)
+      - --context=dir://workspace
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-web:$SHORT_SHA
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-web:latest
       - --cache=true
@@ -45,7 +45,7 @@ steps:
     name: 'gcr.io/kaniko-project/executor:latest'
     args:
       - --dockerfile=worker/Dockerfile
-      - --context=dir://$(pwd)
+      - --context=dir://workspace
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-worker:$SHORT_SHA
       - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-worker:latest
       - --cache=true
