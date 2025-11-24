@@ -13,9 +13,9 @@ RUN apt-get update \
 # NOTE: Run this from the repository root so `pyproject.toml` is available in the
 # build context. Example:
 #   docker build -f data/Dockerfile -t opteryx-data .
-COPY pyproject.toml ./
+COPY data/pyproject.toml ./pyproject.toml
 RUN pip install --no-cache-dir uv \
-    && uv sync || (echo "uv sync failed; ensure pyproject.toml is present and valid and you built with the repo root as context" && exit 1)
+    && uv sync || (echo "uv sync failed; ensure data/pyproject.toml is present and valid in the build context" && exit 1)
 
 # Copy service code
 COPY data ./data

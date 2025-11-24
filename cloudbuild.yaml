@@ -7,6 +7,8 @@ substitutions:
   # Custom domains to map (optional)
   _AUTH_DOMAIN: "auth.opteryx.app"
   _DATA_DOMAIN: "data.opteryx.app"
+  _WEB_DOMAIN: "opteryx.app"
+  _WORKER_DOMAIN: "worker.opteryx.app"
 
 steps:
   # Build `data` image when _SERVICE is 'data' or 'all'
@@ -39,6 +41,37 @@ steps:
             --cache=true;
         else
           echo "Skipping auth image";
+        fi
+  # Build `web` static image when _SERVICE is 'web' or 'all'
+  - id: BuildWeb
+    name: 'gcr.io/kaniko-project/executor:latest'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - >-
+        if [ "$_SERVICE" = "web" ] || [ "$_SERVICE" = "all" ]; then
+          /kaniko/executor --dockerfile=web/Dockerfile --context=dir://$(pwd) \
+            --destination=gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA \
+            --destination=gcr.io/$PROJECT_ID/opteryx-web:latest \
+            --cache=true;
+        else
+          echo "Skipping web image";
+        fi
+
+  # Build `worker` image when _SERVICE is 'worker' or 'all'
+  - id: BuildWorker
+    name: 'gcr.io/kaniko-project/executor:latest'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - >-
+        if [ "$_SERVICE" = "worker" ] || [ "$_SERVICE" = "all" ]; then
+          /kaniko/executor --dockerfile=worker/Dockerfile --context=dir://$(pwd) \
+            --destination=gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA \
+            --destination=gcr.io/$PROJECT_ID/opteryx-worker:latest \
+            --cache=true;
+        else
+          echo "Skipping worker image";
         fi
   # Deploy steps: use gcloud to deploy the built images to Cloud Run in the specified regions.
   # This step uses substitutions: `_REGIONS` (comma-separated), `_MAP_DOMAINS` (true/false),
@@ -91,11 +124,39 @@ steps:
           echo "Skipping opteryx-auth deploy"
         fi
 
-    waitFor: [BuildData, BuildAuth]
+        if [ "${_SERVICE}" = "all" ] || [ "${_SERVICE}" = "web" ]; then
+          deploy_image "opteryx-web" "gcr.io/${PROJECT_ID}/opteryx-web:${SHORT_SHA}"
+        else
+          echo "Skipping opteryx-web deploy"
+        fi
+
+        # Deploy worker without allowing unauthenticated invocations (protected)
+        if [ "${_SERVICE}" = "all" ] || [ "${_SERVICE}" = "worker" ]; then
+          for region in "${REG_ARR[@]}"; do
+            echo "Deploying opteryx-worker to ${region} (no anonymous access)"
+            gcloud run deploy "opteryx-worker" \
+              --image="gcr.io/${PROJECT_ID}/opteryx-worker:${SHORT_SHA}" \
+              --region="${region}" \
+              --platform=managed \
+              --no-allow-unauthenticated \
+              --project="${PROJECT_ID}"
+
+            if [ "${_MAP_DOMAINS}" = "true" ] && [ -n "${_WORKER_DOMAIN}" ]; then
+              echo "Mapping domain ${_WORKER_DOMAIN} to opteryx-worker in ${region}"
+              gcloud run domain-mappings create --service="opteryx-worker" --domain="${_WORKER_DOMAIN}" --region="${region}" --platform=managed --project="${PROJECT_ID}" || echo "domain mapping failed for ${_WORKER_DOMAIN} in ${region}"
+            fi
+          done
+        else
+          echo "Skipping opteryx-worker deploy"
+        fi
+
+    waitFor: [BuildData, BuildAuth, BuildWeb, BuildWorker]
 
 images:
   - gcr.io/$PROJECT_ID/opteryx-data:$SHORT_SHA
   - gcr.io/$PROJECT_ID/opteryx-auth:$SHORT_SHA
+  - gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA
+  - gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA
 
 options:
   machineType: "E2_HIGHCPU_8"
