@@ -53,3 +53,19 @@ fire on changes relevant to the service (e.g. `^data/`, `^auth/`, `^common/`,
 `^pyproject.toml`). Triggers should set the `_SERVICE` substitution to `data`
 or `auth` as appropriate.
 
+Artifact Registry note
+- This repo is configured to push images to Artifact Registry. The `cloudbuild.yaml`
+	targets the `cloud-run-source-deploy` Artifact Registry repository in `us-east1`.
+	Ensure the repo exists and the Cloud Build service account has `artifactregistry.writer` role.
+
+Create Artifact Registry repo (example):
+```bash
+gcloud artifacts repositories create cloud-run-source-deploy \
+	--repository-format=docker --location=us-east1 --description="docker images for opteryx"
+```
+
+If you previously used `gcr.io` you can migrate using Google's migration tool:
+```bash
+gcloud artifacts docker upgrade migrate --projects='YOUR_PROJECT_ID'
+```
+

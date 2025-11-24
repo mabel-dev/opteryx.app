@@ -17,8 +17,8 @@ steps:
     args:
       - --dockerfile=data/Dockerfile
       - --context=dir://$(pwd)
-      - --destination=gcr.io/$PROJECT_ID/opteryx-data:$SHORT_SHA
-      - --destination=gcr.io/$PROJECT_ID/opteryx-data:latest
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-data:$SHORT_SHA
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-data:latest
       - --cache=true
 
   # Build `auth` image when _SERVICE is 'auth' or 'all'
@@ -27,8 +27,8 @@ steps:
     args:
       - --dockerfile=auth/Dockerfile
       - --context=dir://$(pwd)
-      - --destination=gcr.io/$PROJECT_ID/opteryx-auth:$SHORT_SHA
-      - --destination=gcr.io/$PROJECT_ID/opteryx-auth:latest
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-auth:$SHORT_SHA
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-auth:latest
       - --cache=true
   # Build `web` static image when _SERVICE is 'web' or 'all'
   - id: BuildWeb
@@ -36,8 +36,8 @@ steps:
     args:
       - --dockerfile=web/Dockerfile
       - --context=dir://$(pwd)
-      - --destination=gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA
-      - --destination=gcr.io/$PROJECT_ID/opteryx-web:latest
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-web:$SHORT_SHA
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-web:latest
       - --cache=true
 
   # Build `worker` image when _SERVICE is 'worker' or 'all'
@@ -46,8 +46,8 @@ steps:
     args:
       - --dockerfile=worker/Dockerfile
       - --context=dir://$(pwd)
-      - --destination=gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA
-      - --destination=gcr.io/$PROJECT_ID/opteryx-worker:latest
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-worker:$SHORT_SHA
+      - --destination=us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-worker:latest
       - --cache=true
   # Deploy steps: use gcloud to deploy the built images to Cloud Run in the specified regions.
   # This step uses substitutions: `_REGIONS` (comma-separated), `_MAP_DOMAINS` (true/false),
@@ -129,10 +129,10 @@ steps:
     waitFor: [BuildData, BuildAuth, BuildWeb, BuildWorker]
 
 images:
-  - gcr.io/$PROJECT_ID/opteryx-data:$SHORT_SHA
-  - gcr.io/$PROJECT_ID/opteryx-auth:$SHORT_SHA
-  - gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA
-  - gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA
+  - us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-data:$SHORT_SHA
+  - us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-auth:$SHORT_SHA
+  - us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-web:$SHORT_SHA
+  - us-east1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/opteryx-worker:$SHORT_SHA
 
 options:
   machineType: "E2_HIGHCPU_8"
