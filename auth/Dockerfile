@@ -24,7 +24,8 @@ COPY auth ./auth
 RUN chown -R norris:norris /home/norris
 USER norris
 
-ENV PORT=8081
-EXPOSE 8081
+ENV PATH=/home/norris/.venv/bin:$PATH
+ENV PORT=8080
+EXPOSE 8080
 
 CMD uvicorn auth.main:app --host 0.0.0.0 --port $PORT
