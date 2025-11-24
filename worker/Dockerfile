@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
-RUN useradd --create-home worker
-WORKDIR /home/worker
+# Use the same non-root user across services for consistency
+RUN useradd --create-home norris
+WORKDIR /home/norris
 
 # Install runtime dependencies
 RUN apt-get update \
@@ -15,10 +16,12 @@ RUN pip install --no-cache-dir uv \
 
 # Copy app
 COPY worker ./worker
-RUN chown -R worker:worker /home/worker
-USER worker
+RUN chown -R norris:norris /home/norris
+USER norris
 
-ENV PORT=8082
-EXPOSE 8082
+# Ensure virtualenv bin is on PATH and standardize port to 8080 like other services
+ENV PATH=/home/norris/.venv/bin:$PATH
+ENV PORT=8080
+EXPOSE 8080
 
 CMD uvicorn worker.main:app --host 0.0.0.0 --port $PORT

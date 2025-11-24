@@ -22,6 +22,7 @@ COPY data ./data
 RUN chown -R norris:norris /home/norris
 USER norris
 
+ENV PATH=/home/norris/.venv/bin:$PATH
 ENV PORT=8080
 EXPOSE 8080
 
