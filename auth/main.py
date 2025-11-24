@@ -43,18 +43,18 @@ def _load_clients() -> dict:
 
         client = secretmanager.SecretManagerServiceClient()
         project = os.environ.get("GCP_PROJECT")
-        logger.info("_load_clients: GCP_PROJECT=%s", project)
+        logger.info(f"_load_clients: GCP_PROJECT={project}")
         if project:
             secret_name = (
                 f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
             )
-            logger.info("_load_clients: attempting to read secret %s", secret_name)
+            logger.info(f"_load_clients: attempting to read secret {secret_name}")
             resp = client.access_secret_version(request={"name": secret_name})
             payload = resp.payload.data.decode()
             return json.loads(payload)
     except Exception as exc:
         # Fall back silently to dev default below but log the error for debugging
-        logger.warning("_load_clients: secretmanager read failed: %s", exc)
+        logger.warning(f"_load_clients: secretmanager read failed: {exc}")
 
     # 3) Dev fallback
     return {"m2m-client": "secret123"}
@@ -90,11 +90,11 @@ def _get_firestore_client():
         return None
     try:
         project = os.environ.get("GCP_PROJECT")
-        logger.info("_get_firestore_client: GCP_PROJECT=%s", project)
+        logger.info(f"_get_firestore_client: GCP_PROJECT={project}")
         db = firestore.Client()
         return db
     except Exception as exc:
-        logger.warning("_get_firestore_client: failed to create client: %s", exc)
+        logger.warning(f"_get_firestore_client: failed to create client: {exc}")
         return None
 
 
@@ -116,11 +116,7 @@ def _get_client_record(client_id: str) -> Optional[dict]:
                 return data
         except Exception:
             # Firestore unavailable or permissions; fall back below
-            logger.warning(
-                "_get_client_record: firestore get failed for %s",
-                client_id,
-                exc_info=True,
-            )
+            logger.warning(f"_get_client_record: firestore get failed for {client_id}", exc_info=True)
 
     # Fallback to in-memory or secret-based clients
     # CLIENTS is loaded at startup from env/Secret Manager
@@ -288,7 +284,7 @@ def admin_register(
         db = _get_firestore_client()
         if db is not None:
             try:
-                logger.info("admin_register: storing client %s in Firestore", client_id)
+                logger.info(f"admin_register: storing client {client_id} in Firestore")
                 db.collection("auth_clients").document(client_id).set(
                     {
                         "secret_hash": secret_hash,
@@ -296,24 +292,14 @@ def admin_register(
                         "created_at": firestore.SERVER_TIMESTAMP,
                     }
                 )
-                logger.info(
-                    "admin_register: firestore write succeeded for %s", client_id
-                )
+                logger.info(f"admin_register: firestore write succeeded for {client_id}")
             except Exception as exc:
-                logger.warning(
-                    "admin_register: firestore write failed for %s: %s",
-                    client_id,
-                    exc,
-                    exc_info=True,
-                )
+                logger.warning(f"admin_register: firestore write failed for {client_id}: {exc}", exc_info=True)
                 # fall back to in-memory
                 CLIENTS[client_id] = secret_hash
         else:
             # update in-memory fallback
-            logger.info(
-                "admin_register: firestore not available, storing in-memory for %s",
-                client_id,
-            )
+            logger.info(f"admin_register: firestore not available, storing in-memory for {client_id}")
             CLIENTS[client_id] = secret_hash
 
     return {"client_id": client_id, "client_secret": client_secret, "status": status}
@@ -339,26 +325,17 @@ def admin_reset(
     db = _get_firestore_client()
     if db is not None:
         try:
-            logger.info(
-                "admin_reset: updating secret_hash for %s in Firestore", client_id
-            )
+            logger.info(f"admin_reset: updating secret_hash for {client_id} in Firestore")
             doc_ref = db.collection("auth_clients").document(client_id)
             doc_ref.update(
                 {"secret_hash": secret_hash, "updated_at": firestore.SERVER_TIMESTAMP}
             )
-            logger.info("admin_reset: firestore update succeeded for %s", client_id)
+            logger.info(f"admin_reset: firestore update succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(
-                "admin_reset: firestore update failed for %s: %s",
-                client_id,
-                exc,
-                exc_info=True,
-            )
+            logger.warning(f"admin_reset: firestore update failed for {client_id}: {exc}", exc_info=True)
             CLIENTS[client_id] = secret_hash
     else:
-        logger.info(
-            "admin_reset: firestore not available, updating in-memory for %s", client_id
-        )
+        logger.info(f"admin_reset: firestore not available, updating in-memory for {client_id}")
         CLIENTS[client_id] = secret_hash
 
     return {"client_id": client_id, "client_secret": new_secret}
@@ -370,21 +347,14 @@ def admin_delete(client_id: str, x_admin_token: Optional[str] = Header(None)):
     db = _get_firestore_client()
     if db is not None:
         try:
-            logger.info("admin_delete: deleting %s from Firestore", client_id)
+            logger.info(f"admin_delete: deleting {client_id} from Firestore")
             db.collection("auth_clients").document(client_id).delete()
-            logger.info("admin_delete: firestore delete succeeded for %s", client_id)
+            logger.info(f"admin_delete: firestore delete succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(
-                "admin_delete: firestore delete failed for %s: %s",
-                client_id,
-                exc,
-                exc_info=True,
-            )
+            logger.warning(f"admin_delete: firestore delete failed for {client_id}: {exc}", exc_info=True)
             CLIENTS.pop(client_id, None)
     else:
-        logger.info(
-            "admin_delete: firestore not available, removing in-memory %s", client_id
-        )
+        logger.info(f"admin_delete: firestore not available, removing in-memory {client_id}")
         CLIENTS.pop(client_id, None)
     return {"deleted": client_id}
 
@@ -409,28 +379,16 @@ def admin_set_status(
     db = _get_firestore_client()
     if db is not None:
         try:
-            logger.info(
-                "admin_set_status: updating status for %s to %s", client_id, status
-            )
+            logger.info(f"admin_set_status: updating status for {client_id} to {status}")
             db.collection("auth_clients").document(client_id).update(
                 {"status": status, "updated_at": firestore.SERVER_TIMESTAMP}
             )
-            logger.info(
-                "admin_set_status: firestore update succeeded for %s", client_id
-            )
+            logger.info(f"admin_set_status: firestore update succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(
-                "admin_set_status: firestore update failed for %s: %s",
-                client_id,
-                exc,
-                exc_info=True,
-            )
+            logger.warning(f"admin_set_status: firestore update failed for {client_id}: {exc}", exc_info=True)
             # fall back below
     else:
-        logger.info(
-            "admin_set_status: firestore not available, updating in-memory for %s",
-            client_id,
-        )
+        logger.info(f"admin_set_status: firestore not available, updating in-memory for {client_id}")
         rec = CLIENTS.get(client_id)
         if rec is None:
             raise HTTPException(status_code=404, detail="client not found")
