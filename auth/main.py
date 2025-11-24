@@ -17,8 +17,12 @@ except Exception:
 # Use `orso.logging` (assumed installed) for nicely-formatted GCP console logs.
 # This intentionally assumes `orso` is available in the runtime environment.
 from orso.logging import get_logger
+from orso.logging import set_log_name
 
+set_log_name("opteryx-auth")
 logger = get_logger()
+logger.setLevel(5)
+
 try:
     from argon2 import PasswordHasher
     from argon2.exceptions import VerifyMismatchError
