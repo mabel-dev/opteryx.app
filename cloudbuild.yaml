@@ -89,19 +89,19 @@ steps:
 
         # Decide which services to deploy
         if [ "${_SERVICE}" = "all" ] || [ "${_SERVICE}" = "data" ]; then
-          deploy_image "opteryx-data" "gcr.io/${PROJECT_ID}/opteryx-data:${SHORT_SHA}"
+          deploy_image "opteryx-data" "us-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/opteryx-data:${SHORT_SHA}"
         else
           echo "Skipping opteryx-data deploy"
         fi
 
         if [ "${_SERVICE}" = "all" ] || [ "${_SERVICE}" = "auth" ]; then
-          deploy_image "opteryx-auth" "gcr.io/${PROJECT_ID}/opteryx-auth:${SHORT_SHA}"
+          deploy_image "opteryx-auth" "us-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/opteryx-auth:${SHORT_SHA}"
         else
           echo "Skipping opteryx-auth deploy"
         fi
 
         if [ "${_SERVICE}" = "all" ] || [ "${_SERVICE}" = "web" ]; then
-          deploy_image "opteryx-web" "gcr.io/${PROJECT_ID}/opteryx-web:${SHORT_SHA}"
+          deploy_image "opteryx-web" "us-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/opteryx-web:${SHORT_SHA}"
         else
           echo "Skipping opteryx-web deploy"
         fi
@@ -111,7 +111,7 @@ steps:
           for region in "${REG_ARR[@]}"; do
             echo "Deploying opteryx-worker to ${region} (no anonymous access)"
             gcloud run deploy "opteryx-worker" \
-              --image="gcr.io/${PROJECT_ID}/opteryx-worker:${SHORT_SHA}" \
+              --image="us-east1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/opteryx-worker:${SHORT_SHA}" \
               --region="${region}" \
               --platform=managed \
               --no-allow-unauthenticated \
