@@ -1,5 +1,6 @@
 import hmac
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta
@@ -38,16 +39,18 @@ def _load_clients() -> dict:
 
         client = secretmanager.SecretManagerServiceClient()
         project = os.environ.get("GCP_PROJECT")
+        logging.getLogger(__name__).info("_load_clients: GCP_PROJECT=%s", project)
         if project:
             secret_name = (
                 f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
             )
+            logging.getLogger(__name__).info("_load_clients: attempting to read secret %s", secret_name)
             resp = client.access_secret_version(request={"name": secret_name})
             payload = resp.payload.data.decode()
             return json.loads(payload)
-    except Exception:
-        # Fall back silently to dev default below
-        pass
+    except Exception as exc:
+        # Fall back silently to dev default below but log the error for debugging
+        logging.getLogger(__name__).warning("_load_clients: secretmanager read failed: %s", exc)
 
     # 3) Dev fallback
     return {"m2m-client": "secret123"}
@@ -78,9 +81,18 @@ _CLIENT_CACHE_TTL = int(os.environ.get("CLIENT_CACHE_TTL", "60"))
 
 
 def _get_firestore_client():
+    logger = logging.getLogger(__name__)
     if firestore is None:
+        logger.info("_get_firestore_client: google-cloud-firestore not installed")
         return None
-    return firestore.Client()
+    try:
+        project = os.environ.get("GCP_PROJECT")
+        logger.info("_get_firestore_client: GCP_PROJECT=%s", project)
+        db = firestore.Client()
+        return db
+    except Exception as exc:
+        logger.warning("_get_firestore_client: failed to create client: %s", exc)
+        return None
 
 
 def _get_client_record(client_id: str) -> Optional[dict]:
