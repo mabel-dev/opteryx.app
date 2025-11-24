@@ -14,4 +14,5 @@ dependencies = [
     "cryptography>=40.0.0",
     "requests>=2.30.0",
     "python-multipart>=0.0.6",
+    "opteryx==0.26.1"
 ]
