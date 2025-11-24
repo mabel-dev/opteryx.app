@@ -2,7 +2,7 @@
 
 # Virtual environment directory
 VENV ?= .venv
-PY := $(VENV)/bin/python
+PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 UV := $(VENV)/bin/uv
 UVICORN := $(VENV)/bin/uvicorn
@@ -12,8 +12,7 @@ install:
 	if [ ! -d "$(VENV)" ]; then \
 		python3 -m venv "$(VENV)"; \
 	fi; \
-	"$(PIP)" install --upgrade pip setuptools wheel; \
-	"$(PIP)" install uv; \
+	"$(PIP)" install --upgrade pip setuptools wheel uv; \
 	# Install runtime deps directly into the venv so dev run works reliably
 	"$(PIP)" install fastapi uvicorn[standard] python-jose[cryptography] cryptography requests python-multipart; \
 	if [ -f worker/requirements.txt ]; then \
@@ -36,6 +35,19 @@ run: install
 	"$(UVICORN)" auth.main:app --reload --host 0.0.0.0 --port $${AUTH_PORT:-$${PORT:-8081}} & \
 	"$(UVICORN)" data.main:app --reload --host 0.0.0.0 --port $${DATA_PORT:-$${PORT:-8000}} & \
 	# serve static web directory using the venv python http.server
-	"$(PY)" -m http.server $${WEB_PORT:-$${PORT:-8080}} --directory web/static & \
+	"$(PYTHON)" -m http.server $${WEB_PORT:-$${PORT:-8080}} --directory web/static & \
 	"$(UVICORN)" worker.main:app --reload --host 0.0.0.0 --port $${WORKER_PORT:-$${PORT:-8082}} & \
 	wait
+
+lint: ## Run all linting tools
+	@echo "Installing linting tools..."
+	@$(PIP) install --quiet --upgrade pycln isort ruff
+	@echo "Running Ruff checks..."
+	@$(PYTHON) -m ruff check --fix --exit-zero
+	@echo "Cleaning unused imports..."
+	@$(PYTHON) -m pycln .
+	@echo "Sorting imports..."
+	@$(PYTHON) -m isort .
+	@echo "Formatting code..."
+	@$(PYTHON) -m ruff format $(SRC_DIR)
+	@echo "Linting complete!"

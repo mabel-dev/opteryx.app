@@ -7,7 +7,6 @@ These tests verify that the endpoint stubs:
 - Return response bodies with the correct structure
 """
 
-import pytest
 from starlette.testclient import TestClient
 
 from data.main import app

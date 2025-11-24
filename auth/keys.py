@@ -1,12 +1,12 @@
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from pathlib import Path
 import base64
 import datetime
+from pathlib import Path
 from typing import Optional, Tuple
 
-from . import secret_store
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
+from . import secret_store
 
 KEY_DIR = Path(__file__).parent / "keys"
 ROTATED_DIR = KEY_DIR / "rotated"
@@ -35,10 +35,14 @@ def generate_keypair() -> Tuple[str, str]:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
-    pub = key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode()
+    pub = (
+        key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode()
+    )
     return priv, pub
 
 
