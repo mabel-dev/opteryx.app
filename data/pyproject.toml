@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opteryx-data"
+version = "0.0.0"
+description = "Opteryx Data service"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.101.0",
+    "uvicorn[standard]==0.23.2",
+    "python-jose[cryptography]==3.3.0",
+    "cryptography>=40.0.0",
+    "requests>=2.30.0",
+    "python-multipart>=0.0.6",
+]

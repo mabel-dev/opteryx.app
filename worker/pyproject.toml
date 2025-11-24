@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opteryx-worker"
+version = "0.0.0"
+description = "Opteryx Worker service"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.99.1",
+    "uvicorn[standard]==0.22.0",
+    "pydantic==2.5.2",
+]
