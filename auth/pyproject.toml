@@ -13,4 +13,5 @@ dependencies = [
     "python-jose[cryptography]==3.3.0",
     "cryptography>=40.0.0",
     "requests>=2.30.0",
+    "python-multipart>=0.0.6",
 ]
