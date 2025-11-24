@@ -1,9 +1,10 @@
 substitutions:
   _SERVICE: "all"
-  # Comma-separated list of regions to deploy to. Use GCP region names (e.g. us-east1,us-west1)
-  _REGIONS: "us-east1,us-west1"
+  # Comma-separated list of regions to deploy to. Use GCP region names (e.g. us-east1)
+  # Default restricted to a single region (us-east1) to deploy only to east-1.
+  _REGIONS: "us-east1"
   # If true, attempt to map custom domains after deploy. Requires domain ownership and proper DNS.
-  _MAP_DOMAINS: "false"
+  _MAP_DOMAINS: "true"
   # Custom domains to map (optional)
   _AUTH_DOMAIN: "auth.opteryx.app"
   _DATA_DOMAIN: "data.opteryx.app"
@@ -78,10 +79,12 @@ steps:
               if [ "${svc_name}" = "opteryx-auth" ] && [ -n "${_AUTH_DOMAIN}" ]; then
                 echo "Mapping domain ${_AUTH_DOMAIN} to ${svc_name} in ${region}"
                 gcloud run domain-mappings create --service="${svc_name}" --domain="${_AUTH_DOMAIN}" --region="${region}" --platform=managed --project="${PROJECT_ID}" || echo "domain mapping failed for ${_AUTH_DOMAIN} in ${region}"
+                  echo "domain mapping failed for ${_AUTH_DOMAIN} in ${region}. Ensure the domain is verified for this project and add the DNS TXT/A records shown in the Cloud Run console (or run 'gcloud run domain-mappings describe --service=${svc_name} --domain=${_AUTH_DOMAIN} --region=${region}')"
               fi
               if [ "${svc_name}" = "opteryx-data" ] && [ -n "${_DATA_DOMAIN}" ]; then
                 echo "Mapping domain ${_DATA_DOMAIN} to ${svc_name} in ${region}"
                 gcloud run domain-mappings create --service="${svc_name}" --domain="${_DATA_DOMAIN}" --region="${region}" --platform=managed --project="${PROJECT_ID}" || echo "domain mapping failed for ${_DATA_DOMAIN} in ${region}"
+                  echo "domain mapping failed for ${_DATA_DOMAIN} in ${region}. Ensure the domain is verified for this project and add the DNS TXT/A records shown in the Cloud Run console (or run 'gcloud run domain-mappings describe --service=${svc_name} --domain=${_DATA_DOMAIN} --region=${region}')"
               fi
             fi
           done
@@ -120,6 +123,7 @@ steps:
             if [ "${_MAP_DOMAINS}" = "true" ] && [ -n "${_WORKER_DOMAIN}" ]; then
               echo "Mapping domain ${_WORKER_DOMAIN} to opteryx-worker in ${region}"
               gcloud run domain-mappings create --service="opteryx-worker" --domain="${_WORKER_DOMAIN}" --region="${region}" --platform=managed --project="${PROJECT_ID}" || echo "domain mapping failed for ${_WORKER_DOMAIN} in ${region}"
+                echo "domain mapping failed for ${_WORKER_DOMAIN} in ${region}. Ensure the domain is verified for this project and add the DNS TXT/A records shown in the Cloud Run console (or run 'gcloud run domain-mappings describe --service=opteryx-worker --domain=${_WORKER_DOMAIN} --region=${region}')"
             fi
           done
         else
