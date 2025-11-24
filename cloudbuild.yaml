@@ -14,65 +14,41 @@ steps:
   # Build `data` image when _SERVICE is 'data' or 'all'
   - id: BuildData
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: 'sh'
     args:
-      - '-c'
-      - >-
-        if [ "$_SERVICE" = "data" ] || [ "$_SERVICE" = "all" ]; then
-          /kaniko/executor --dockerfile=data/Dockerfile --context=dir://$(pwd) \
-            --destination=gcr.io/$PROJECT_ID/opteryx-data:$SHORT_SHA \
-            --destination=gcr.io/$PROJECT_ID/opteryx-data:latest \
-            --cache=true;
-        else
-          echo "Skipping data image";
-        fi
+      - --dockerfile=data/Dockerfile
+      - --context=dir://$(pwd)
+      - --destination=gcr.io/$PROJECT_ID/opteryx-data:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/opteryx-data:latest
+      - --cache=true
 
   # Build `auth` image when _SERVICE is 'auth' or 'all'
   - id: BuildAuth
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: 'sh'
     args:
-      - '-c'
-      - >-
-        if [ "$_SERVICE" = "auth" ] || [ "$_SERVICE" = "all" ]; then
-          /kaniko/executor --dockerfile=auth/Dockerfile --context=dir://$(pwd) \
-            --destination=gcr.io/$PROJECT_ID/opteryx-auth:$SHORT_SHA \
-            --destination=gcr.io/$PROJECT_ID/opteryx-auth:latest \
-            --cache=true;
-        else
-          echo "Skipping auth image";
-        fi
+      - --dockerfile=auth/Dockerfile
+      - --context=dir://$(pwd)
+      - --destination=gcr.io/$PROJECT_ID/opteryx-auth:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/opteryx-auth:latest
+      - --cache=true
   # Build `web` static image when _SERVICE is 'web' or 'all'
   - id: BuildWeb
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: 'sh'
     args:
-      - '-c'
-      - >-
-        if [ "$_SERVICE" = "web" ] || [ "$_SERVICE" = "all" ]; then
-          /kaniko/executor --dockerfile=web/Dockerfile --context=dir://$(pwd) \
-            --destination=gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA \
-            --destination=gcr.io/$PROJECT_ID/opteryx-web:latest \
-            --cache=true;
-        else
-          echo "Skipping web image";
-        fi
+      - --dockerfile=web/Dockerfile
+      - --context=dir://$(pwd)
+      - --destination=gcr.io/$PROJECT_ID/opteryx-web:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/opteryx-web:latest
+      - --cache=true
 
   # Build `worker` image when _SERVICE is 'worker' or 'all'
   - id: BuildWorker
     name: 'gcr.io/kaniko-project/executor:latest'
-    entrypoint: 'sh'
     args:
-      - '-c'
-      - >-
-        if [ "$_SERVICE" = "worker" ] || [ "$_SERVICE" = "all" ]; then
-          /kaniko/executor --dockerfile=worker/Dockerfile --context=dir://$(pwd) \
-            --destination=gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA \
-            --destination=gcr.io/$PROJECT_ID/opteryx-worker:latest \
-            --cache=true;
-        else
-          echo "Skipping worker image";
-        fi
+      - --dockerfile=worker/Dockerfile
+      - --context=dir://$(pwd)
+      - --destination=gcr.io/$PROJECT_ID/opteryx-worker:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/opteryx-worker:latest
+      - --cache=true
   # Deploy steps: use gcloud to deploy the built images to Cloud Run in the specified regions.
   # This step uses substitutions: `_REGIONS` (comma-separated), `_MAP_DOMAINS` (true/false),
   # `_AUTH_DOMAIN`, `_DATA_DOMAIN`.
