@@ -5,7 +5,7 @@ from typing import Dict
 import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 
 security = HTTPBearer()
 _jwks_cache: Dict = {"keys": None, "fetched_at": 0}
@@ -21,7 +21,9 @@ def fetch_jwks():
         r = requests.get(f"{auth_url}/jwks", timeout=2)
         r.raise_for_status()
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Cannot fetch JWKS") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Cannot fetch JWKS"
+        ) from exc
     jwks = r.json()
     _jwks_cache["keys"] = jwks
     _jwks_cache["fetched_at"] = now
@@ -33,7 +35,9 @@ def require_bearer_token(token: str = Depends(security)):
     # Expect a JWKS structure: {"keys": [ {kty, kid, n, e, ...} ] }
     keys = jwks.get("keys") if isinstance(jwks, dict) else None
     if not keys:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No JWKS available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No JWKS available"
+        )
     # Determine which JWK to use by reading the token header `kid`.
     try:
         header = jwt.get_unverified_header(token.credentials)
@@ -53,11 +57,14 @@ def require_bearer_token(token: str = Depends(security)):
     n_b64 = jwk.get("n")
     e_b64 = jwk.get("e")
     if not n_b64 or not e_b64:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Invalid JWK")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Invalid JWK"
+        )
 
     # Convert base64url values to integers
     def _b64url_to_int(s: str) -> int:
         import base64
+
         padding = "=" * ((4 - len(s) % 4) % 4)
         data = base64.urlsafe_b64decode(s + padding)
         return int.from_bytes(data, "big")
@@ -66,8 +73,8 @@ def require_bearer_token(token: str = Depends(security)):
     e = _b64url_to_int(e_b64)
 
     # Build PEM from numbers
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
     pub_numbers = rsa.RSAPublicNumbers(e, n)
     pub_key = pub_numbers.public_key()
@@ -84,5 +91,7 @@ def require_bearer_token(token: str = Depends(security)):
             audience=os.environ.get("DATA_AUDIENCE", "opteryx-api"),
         )
     except JWTError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        ) from exc
     return payload

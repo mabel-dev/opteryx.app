@@ -14,6 +14,8 @@ This is intentionally a simple stub — production code should handle
 authentication, permissions, secret naming and versions more robustly.
 """
 
+import datetime
+import json
 import os
 from pathlib import Path
 from typing import Optional, Tuple
@@ -44,7 +46,29 @@ def _want_gcp() -> bool:
 
 
 def _fs_path_for(kid: str) -> Tuple[Path, Path]:
-    return (KEY_DIR / f"{kid}_private.pem", KEY_DIR / f"{kid}_public.pem")
+    # filesystem fallback: keep per-week directories to avoid proliferating top-level files
+    week_start = _week_start_for_kid(kid)
+    week_dir = KEY_DIR / f"week_{week_start.strftime('%Y%m%d')}"
+    week_dir.mkdir(parents=True, exist_ok=True)
+    return (week_dir / f"{kid}_private.pem", week_dir / f"{kid}_public.pem")
+
+
+def _week_start_for_kid(kid: str) -> datetime.date:
+    """Return the Monday (week-start) date for the given kid (YYYYMMDD)."""
+    try:
+        dt = datetime.datetime.strptime(kid, "%Y%m%d").date()
+    except Exception:
+        # If parsing fails, fall back to today
+        dt = datetime.date.today()
+    # Monday is weekday 0
+    week_start = dt - datetime.timedelta(days=dt.weekday())
+    return week_start
+
+
+def _week_secret_id_for_kid(kid: str, suffix: str) -> str:
+    """Return a secret id string for the week containing `kid` and given suffix ('private'|'public')."""
+    week_start = _week_start_for_kid(kid)
+    return f"{week_start.strftime('%Y%m%d')}-{suffix}"
 
 
 def store_key(kid: str, priv_pem: str, pub_pem: str) -> None:
@@ -59,17 +83,32 @@ def store_key(kid: str, priv_pem: str, pub_pem: str) -> None:
             use_gcp = False
 
     if use_gcp:
-        # Minimal GCP stub: store two secrets named {kid}-private and {kid}-public
+        # Store versions under a weekly secret (one secret per week) to avoid creating
+        # a secret resource per day. Each version payload contains JSON {"kid":..., "pem":...}.
         client = secretmanager.SecretManagerServiceClient()
         project = os.environ.get("GCP_PROJECT")
-        for name, payload in ((f"{kid}-private", priv_pem), (f"{kid}-public", pub_pem)):
+        # private and public secrets per-week
+        for suffix, pem in (("private", priv_pem), ("public", pub_pem)):
+            secret_id = _week_secret_id_for_kid(kid, suffix)
             parent = f"projects/{project}"
             # create secret if missing (best-effort)
             try:
-                client.create_secret(request={"parent": parent, "secret_id": name, "secret": {"replication": {"automatic": {}}}})
+                client.create_secret(
+                    request={
+                        "parent": parent,
+                        "secret_id": secret_id,
+                        "secret": {"replication": {"automatic": {}}},
+                    }
+                )
             except Exception:
                 pass
-            client.add_secret_version(request={"parent": f"projects/{project}/secrets/{name}", "payload": {"data": payload.encode()}})
+            payload = json.dumps({"kid": kid, "pem": pem})
+            client.add_secret_version(
+                request={
+                    "parent": f"projects/{project}/secrets/{secret_id}",
+                    "payload": {"data": payload.encode()},
+                }
+            )
         return
 
     # Filesystem fallback
@@ -90,12 +129,45 @@ def load_key(kid: str) -> Optional[Tuple[str, str]]:
     if use_gcp:
         client = secretmanager.SecretManagerServiceClient()
         project = os.environ.get("GCP_PROJECT")
+        # Look up in the weekly secrets for the week that contains kid. Search versions newest->oldest
+        priv_secret_id = _week_secret_id_for_kid(kid, "private")
+        pub_secret_id = _week_secret_id_for_kid(kid, "public")
         try:
-            priv_name = f"projects/{project}/secrets/{kid}-private/versions/latest"
-            pub_name = f"projects/{project}/secrets/{kid}-public/versions/latest"
-            priv = client.access_secret_version(request={"name": priv_name}).payload.data.decode()
-            pub = client.access_secret_version(request={"name": pub_name}).payload.data.decode()
-            return priv, pub
+            # helper to find pem for secret id
+            def _find_pem(secret_id: str, desired_kid: str) -> Optional[str]:
+                parent = f"projects/{project}/secrets/{secret_id}"
+                # list versions
+                try:
+                    versions = client.list_secret_versions(request={"parent": parent})
+                except Exception:
+                    return None
+                # iterate versions (API returns an iterator; convert to list to inspect newest first)
+                vers = [v for v in versions]
+                # sort by createTime descending if available
+                try:
+                    vers.sort(key=lambda v: v.create_time, reverse=True)
+                except Exception:
+                    pass
+                for v in vers:
+                    if v.state.name != "ENABLED":
+                        continue
+                    ver_name = v.name
+                    try:
+                        payload = client.access_secret_version(
+                            request={"name": ver_name}
+                        ).payload.data.decode()
+                        data = json.loads(payload)
+                        if data.get("kid") == desired_kid:
+                            return data.get("pem")
+                    except Exception:
+                        continue
+                return None
+
+            priv = _find_pem(priv_secret_id, kid)
+            pub = _find_pem(pub_secret_id, kid)
+            if priv and pub:
+                return priv, pub
+            return None
         except Exception:
             return None
 

@@ -9,10 +9,8 @@ to live under the `data` package so the service is exposed as
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
-
-from data.auth.deps import require_bearer_token
 
 from data.api.v1.models import (
     StatementCancelResponse,
@@ -21,8 +19,11 @@ from data.api.v1.models import (
     StatementStatus,
     StatementStatusResponse,
 )
+from data.auth.deps import require_bearer_token
 
-router = APIRouter(prefix="/api/v1", tags=["Statements"], dependencies=[Depends(require_bearer_token)])
+router = APIRouter(
+    prefix="/api/v1", tags=["Statements"], dependencies=[Depends(require_bearer_token)]
+)
 
 
 @router.post(
