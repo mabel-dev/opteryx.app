@@ -46,8 +46,9 @@ def _load_clients() -> dict:
         from google.cloud import secretmanager  # type: ignore
 
         client = secretmanager.SecretManagerServiceClient()
-        project = os.environ.get("GCP_PROJECT")
-        logger.info(f"_load_clients: GCP_PROJECT={project}")
+        # prefer explicit env var, then try to auto-detect from ADC
+        project = _detect_project()
+        logger.info(f"_load_clients: resolved GCP project={project}")
         if project:
             secret_name = (
                 f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
@@ -83,6 +84,36 @@ def _check_client_secret_hash(secret_hash: str, provided: str) -> bool:
         return False
 
 
+def _detect_project() -> Optional[str]:
+    """Return the GCP project id the service should use.
+
+    Order of detection:
+    1. `GCP_PROJECT` env var
+    2. `GOOGLE_CLOUD_PROJECT` env var
+    3. Application Default Credentials (google.auth.default())
+    Returns `None` if no project could be determined.
+    """
+    # Accept a few common env var names that teams might set during deploy.
+    project = (
+        os.environ.get("GCP_PROJECT_ID")
+        or os.environ.get("GCP_PROJECT")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+    )
+    if project:
+        return project
+    try:
+        # google.auth.default will often return the project id when running on GCP
+        import google.auth
+
+        _, proj = google.auth.default()
+        if proj:
+            return proj
+    except Exception:
+        # ignore; return None below
+        pass
+    return None
+
+
 # Firestore-backed client cache
 _CLIENT_CACHE: dict = {}
 _CLIENT_CACHE_TTL = int(os.environ.get("CLIENT_CACHE_TTL", "60"))
@@ -93,9 +124,11 @@ def _get_firestore_client():
         logger.info("_get_firestore_client: google-cloud-firestore not installed")
         return None
     try:
-        project = os.environ.get("GCP_PROJECT")
-        logger.info(f"_get_firestore_client: GCP_PROJECT={project}")
-        db = firestore.Client()
+        project = _detect_project()
+        logger.info(f"_get_firestore_client: resolved GCP project={project}")
+        # If project is None, firestore.Client() will still try to use ADC/project
+        # but we prefer to pass it explicitly when known.
+        db = firestore.Client(project=project) if project else firestore.Client()
         return db
     except Exception as exc:
         logger.warning(f"_get_firestore_client: failed to create client: {exc}")
