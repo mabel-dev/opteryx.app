@@ -12,6 +12,8 @@ dependencies = [
     "uvicorn[standard]==0.23.2",
     "python-jose[cryptography]==3.3.0",
     "cryptography>=40.0.0",
+    "google-cloud-firestore>=2.10.0",
+    "orjson>=3.9.0",
     "requests>=2.30.0",
     "python-multipart>=0.0.6",
     "opteryx==0.26.1"

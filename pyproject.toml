@@ -7,11 +7,23 @@ name = "opteryx-app"
 version = "0.0.0"
 description = "Opteryx Data API"
 requires-python = ">=3.11"
-dependencies = [
-    "fastapi==0.101.0",
-    "opteryx==0.26.1",
-        "uvicorn[standard]==0.23.2",
-        "python-jose[cryptography]==3.3.0",
-        "cryptography>=40.0.0",
-        "requests>=2.30.0",
-]
+dependencies = []
+
+[tool.isort]
+profile = "black"
+extend_skip_glob = ["tests/**", "*.pyx", "*.pxd", "testdata/**", "**/operators/__init__.py"]
+skip_gitignore = true
+line_length = 100
+multi_line_output = 9
+force_single_line = true
+float_to_top = true
+ensure_newline_before_comments = true
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = 'py313'
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 100

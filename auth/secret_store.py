@@ -18,7 +18,8 @@ import datetime
 import json
 import os
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 KEY_DIR = Path(__file__).parent / "keys" / "rotated"
 KEY_DIR.mkdir(parents=True, exist_ok=True)

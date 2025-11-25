@@ -1,7 +1,8 @@
 import base64
 import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
