@@ -3,9 +3,23 @@ Pydantic models for Snowflake-compatible statement API (data service).
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field
+
+
+class JobDocument(BaseModel):
+    statementHandle: str
+    sqlText: str
+    status: str = Field(..., description="Status of the job")
+    description: Optional[str] = Field(None)
+    progress: Optional[float] = Field(0.0)
+    created_at: Optional[datetime] = Field(None)
+    started_at: Optional[datetime] = Field(None)
+    finished_at: Optional[datetime] = Field(None)
+    updated_at: Optional[datetime] = Field(None)
 
 
 class StatementStatus(BaseModel):

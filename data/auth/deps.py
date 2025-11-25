@@ -3,9 +3,12 @@ import time
 from typing import Dict
 
 import requests
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
 from fastapi.security import HTTPBearer
-from jose import JWTError, jwt
+from jose import JWTError
+from jose import jwt
 
 security = HTTPBearer()
 _jwks_cache: Dict = {"keys": None, "fetched_at": 0}
@@ -57,9 +60,7 @@ def require_bearer_token(token: str = Depends(security)):
     n_b64 = jwk.get("n")
     e_b64 = jwk.get("e")
     if not n_b64 or not e_b64:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Invalid JWK"
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Invalid JWK")
 
     # Convert base64url values to integers
     def _b64url_to_int(s: str) -> int:

@@ -1,34 +1,28 @@
 import hmac
-import json
+import orjson
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from typing import Optional
 
-from fastapi import FastAPI, Form, Header, HTTPException
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+from fastapi import FastAPI
+from fastapi.responses import ORJSONResponse
+from fastapi import Form
+from fastapi import Header
+from fastapi import HTTPException
+from google.cloud import firestore  # type: ignore
 from jose import jwt
-from pydantic import BaseModel
-
-try:
-    from google.cloud import firestore  # type: ignore
-except Exception:
-    firestore = None
-
-# Use `orso.logging` (assumed installed) for nicely-formatted GCP console logs.
-# This intentionally assumes `orso` is available in the runtime environment.
 from orso.logging import get_logger
 from orso.logging import set_log_name
+from pydantic import BaseModel
 
 set_log_name("opteryx-auth")
 logger = get_logger()
 logger.setLevel(5)
-
-try:
-    from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError
-except Exception:
-    PasswordHasher = None
-    VerifyMismatchError = Exception
 
 
 # Attempt to load clients from AUTH_CLIENTS_JSON env var or from Secret Manager
@@ -37,26 +31,24 @@ def _load_clients() -> dict:
     env = os.environ.get("AUTH_CLIENTS_JSON")
     if env:
         try:
-            return json.loads(env)
+            return orjson.loads(env)
         except Exception:
             pass
 
     # 2) Secret Manager: secret id 'opteryx-auth-clients' storing JSON payload
-    try:
-        from google.cloud import secretmanager  # type: ignore
+    from google.cloud import secretmanager  # type: ignore
 
+    try:
         client = secretmanager.SecretManagerServiceClient()
         # prefer explicit env var, then try to auto-detect from ADC
         project = _detect_project()
         logger.info(f"_load_clients: resolved GCP project={project}")
         if project:
-            secret_name = (
-                f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
-            )
+            secret_name = f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
             logger.info(f"_load_clients: attempting to read secret {secret_name}")
             resp = client.access_secret_version(request={"name": secret_name})
             payload = resp.payload.data.decode()
-            return json.loads(payload)
+            return orjson.loads(payload)
     except Exception as exc:
         # Fall back silently to dev default below but log the error for debugging
         logger.warning(f"_load_clients: secretmanager read failed: {exc}")
@@ -65,7 +57,7 @@ def _load_clients() -> dict:
     return {"m2m-client": "secret123"}
 
 
-_PH = PasswordHasher() if PasswordHasher is not None else None
+_PH = PasswordHasher()
 
 
 def _check_client_secret_hash(secret_hash: str, provided: str) -> bool:
@@ -120,9 +112,6 @@ _CLIENT_CACHE_TTL = int(os.environ.get("CLIENT_CACHE_TTL", "60"))
 
 
 def _get_firestore_client():
-    if firestore is None:
-        logger.info("_get_firestore_client: google-cloud-firestore not installed")
-        return None
     try:
         project = _detect_project()
         logger.info(f"_get_firestore_client: resolved GCP project={project}")
@@ -153,7 +142,10 @@ def _get_client_record(client_id: str) -> Optional[dict]:
                 return data
         except Exception:
             # Firestore unavailable or permissions; fall back below
-            logger.warning(f"_get_client_record: firestore get failed for {client_id}", exc_info=True)
+            logger.warning(
+                f"_get_client_record: firestore get failed for {client_id}",
+                exc_info=True,
+            )
 
     # Fallback to in-memory or secret-based clients
     # CLIENTS is loaded at startup from env/Secret Manager
@@ -164,7 +156,7 @@ def _get_client_record(client_id: str) -> Optional[dict]:
     return None
 
 
-app = FastAPI(title="Opteryx Auth Service")
+app = FastAPI(title="Opteryx Auth Service", default_response_class=ORJSONResponse)
 
 # client_id -> client_secret mapping (loaded at startup)
 CLIENTS = _load_clients()
@@ -222,9 +214,7 @@ def ensure_key(days_ahead: int = 0, key_date: str | None = None):
     else:
         use_date = _dt.date.today() + _dt.timedelta(days=int(days_ahead or 0))
 
-    kid = __import__("auth.keys", fromlist=["ensure_key_for_date"]).ensure_key_for_date(
-        use_date
-    )
+    kid = __import__("auth.keys", fromlist=["ensure_key_for_date"]).ensure_key_for_date(use_date)
     return {"kid": kid}
 
 
@@ -265,16 +255,14 @@ def token_endpoint(
     else:
         use_date = _dt.date.today() + _dt.timedelta(days=int(days_ahead or 0))
 
-    kid = __import__("auth.keys", fromlist=["ensure_key_for_date"]).ensure_key_for_date(
-        use_date
-    )
+    kid = __import__("auth.keys", fromlist=["ensure_key_for_date"]).ensure_key_for_date(use_date)
     private_pem = __import__(
         "auth.keys", fromlist=["get_private_pem_for_date"]
     ).get_private_pem_for_date(kid)
     if not private_pem:
         raise HTTPException(status_code=500, detail="signing key not available")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exp = now + timedelta(minutes=15)
     payload = {
         "sub": client_id,
@@ -331,12 +319,17 @@ def admin_register(
                 )
                 logger.info(f"admin_register: firestore write succeeded for {client_id}")
             except Exception as exc:
-                logger.warning(f"admin_register: firestore write failed for {client_id}: {exc}", exc_info=True)
+                logger.warning(
+                    f"admin_register: firestore write failed for {client_id}: {exc}",
+                    exc_info=True,
+                )
                 # fall back to in-memory
                 CLIENTS[client_id] = secret_hash
         else:
             # update in-memory fallback
-            logger.info(f"admin_register: firestore not available, storing in-memory for {client_id}")
+            logger.info(
+                f"admin_register: firestore not available, storing in-memory for {client_id}"
+            )
             CLIENTS[client_id] = secret_hash
 
     return {"client_id": client_id, "client_secret": client_secret, "status": status}
@@ -364,12 +357,13 @@ def admin_reset(
         try:
             logger.info(f"admin_reset: updating secret_hash for {client_id} in Firestore")
             doc_ref = db.collection("auth_clients").document(client_id)
-            doc_ref.update(
-                {"secret_hash": secret_hash, "updated_at": firestore.SERVER_TIMESTAMP}
-            )
+            doc_ref.update({"secret_hash": secret_hash, "updated_at": firestore.SERVER_TIMESTAMP})
             logger.info(f"admin_reset: firestore update succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(f"admin_reset: firestore update failed for {client_id}: {exc}", exc_info=True)
+            logger.warning(
+                f"admin_reset: firestore update failed for {client_id}: {exc}",
+                exc_info=True,
+            )
             CLIENTS[client_id] = secret_hash
     else:
         logger.info(f"admin_reset: firestore not available, updating in-memory for {client_id}")
@@ -388,7 +382,10 @@ def admin_delete(client_id: str, x_admin_token: Optional[str] = Header(None)):
             db.collection("auth_clients").document(client_id).delete()
             logger.info(f"admin_delete: firestore delete succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(f"admin_delete: firestore delete failed for {client_id}: {exc}", exc_info=True)
+            logger.warning(
+                f"admin_delete: firestore delete failed for {client_id}: {exc}",
+                exc_info=True,
+            )
             CLIENTS.pop(client_id, None)
     else:
         logger.info(f"admin_delete: firestore not available, removing in-memory {client_id}")
@@ -410,9 +407,7 @@ def admin_set_status(
         "soft-deleted",
     ]
     if status not in allowed:
-        raise HTTPException(
-            status_code=400, detail=f"invalid status; allowed: {allowed}"
-        )
+        raise HTTPException(status_code=400, detail=f"invalid status; allowed: {allowed}")
     db = _get_firestore_client()
     if db is not None:
         try:
@@ -422,10 +417,15 @@ def admin_set_status(
             )
             logger.info(f"admin_set_status: firestore update succeeded for {client_id}")
         except Exception as exc:
-            logger.warning(f"admin_set_status: firestore update failed for {client_id}: {exc}", exc_info=True)
+            logger.warning(
+                f"admin_set_status: firestore update failed for {client_id}: {exc}",
+                exc_info=True,
+            )
             # fall back below
     else:
-        logger.info(f"admin_set_status: firestore not available, updating in-memory for {client_id}")
+        logger.info(
+            f"admin_set_status: firestore not available, updating in-memory for {client_id}"
+        )
         rec = CLIENTS.get(client_id)
         if rec is None:
             raise HTTPException(status_code=404, detail="client not found")

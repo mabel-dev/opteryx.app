@@ -12,17 +12,8 @@ import getpass
 import secrets
 import sys
 
-try:
-    from google.cloud import firestore  # type: ignore
-except Exception:
-    print("google-cloud-firestore not installed or not available")
-    raise
-
-try:
-    from argon2 import PasswordHasher
-except Exception:
-    print("argon2-cffi not installed")
-    raise
+from argon2 import PasswordHasher
+from google.cloud import firestore  # type: ignore
 
 
 def main():
