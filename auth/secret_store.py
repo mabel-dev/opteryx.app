@@ -78,21 +78,28 @@ def store_key(kid: str, priv_pem: str, pub_pem: str) -> None:
     use_gcp = _want_gcp()
     if use_gcp:
         try:
+            from google.api_core import exceptions as gcp_exc  # type: ignore
             from google.cloud import secretmanager  # type: ignore
         except Exception:
             # GCP requested but client library not available; fall back to filesystem
+            use_gcp = False
+            gcp_exc = None
+
+    if use_gcp:
+        client = secretmanager.SecretManagerServiceClient()
+        # Prefer explicit GCP_PROJECT otherwise use fallback env var
+        project = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        if not project:
+            # If project is not set, don't attempt GCP operations; fall back to FS
             use_gcp = False
 
     if use_gcp:
         # Store versions under a weekly secret (one secret per week) to avoid creating
         # a secret resource per day. Each version payload contains JSON {"kid":..., "pem":...}.
-        client = secretmanager.SecretManagerServiceClient()
-        project = os.environ.get("GCP_PROJECT")
-        # private and public secrets per-week
         for suffix, pem in (("private", priv_pem), ("public", pub_pem)):
             secret_id = _week_secret_id_for_kid(kid, suffix)
             parent = f"projects/{project}"
-            # create secret if missing (best-effort)
+            # Attempt to create the secret resource if it doesn't exist.
             try:
                 client.create_secret(
                     request={
@@ -101,15 +108,46 @@ def store_key(kid: str, priv_pem: str, pub_pem: str) -> None:
                         "secret": {"replication": {"automatic": {}}},
                     }
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                # Only ignore if secret already exists, otherwise let it propagate
+                if gcp_exc is not None and isinstance(exc, gcp_exc.AlreadyExists):
+                    pass
+                else:
+                    # Re-raise non-AlreadyExists exceptions so callers can detect failures
+                    raise
+
             payload = json.dumps({"kid": kid, "pem": pem})
-            client.add_secret_version(
-                request={
-                    "parent": f"projects/{project}/secrets/{secret_id}",
-                    "payload": {"data": payload.encode()},
-                }
-            )
+            try:
+                client.add_secret_version(
+                    request={
+                        "parent": f"projects/{project}/secrets/{secret_id}",
+                        "payload": {"data": payload.encode()},
+                    }
+                )
+            except Exception as exc:
+                # If the add version fails due to NotFound, attempt to create secret and retry once
+                if gcp_exc is not None and isinstance(exc, gcp_exc.NotFound):
+                    try:
+                        client.create_secret(
+                            request={
+                                "parent": parent,
+                                "secret_id": secret_id,
+                                "secret": {"replication": {"automatic": {}}},
+                            }
+                        )
+                    except Exception:
+                        # ignore create failure
+                        pass
+                    # retry add_secret_version; allow exceptions to bubble up if they continue
+                    client.add_secret_version(
+                        request={
+                            "parent": f"projects/{project}/secrets/{secret_id}",
+                            "payload": {"data": payload.encode()},
+                        }
+                    )
+                else:
+                    # Re-raise non-NotFound errors for callers to handle
+                    raise
         return
 
     # Filesystem fallback
@@ -126,10 +164,23 @@ def load_key(kid: str) -> Optional[Tuple[str, str]]:
             from google.cloud import secretmanager  # type: ignore
         except Exception:
             use_gcp = False
+            gcp_exc = None
+
+    if use_gcp:
+        try:
+            from google.api_core import exceptions as gcp_exc  # type: ignore
+            from google.cloud import secretmanager  # type: ignore
+        except Exception:
+            use_gcp = False
+            gcp_exc = None
 
     if use_gcp:
         client = secretmanager.SecretManagerServiceClient()
-        project = os.environ.get("GCP_PROJECT")
+        project = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        if not project:
+            use_gcp = False
+
+    if use_gcp:
         # Look up in the weekly secrets for the week that contains kid. Search versions newest->oldest
         priv_secret_id = _week_secret_id_for_kid(kid, "private")
         pub_secret_id = _week_secret_id_for_kid(kid, "public")
@@ -140,7 +191,28 @@ def load_key(kid: str) -> Optional[Tuple[str, str]]:
                 # list versions
                 try:
                     versions = client.list_secret_versions(request={"parent": parent})
-                except Exception:
+                except Exception as exc:
+                    # If the secret resource doesn't exist (NotFound), attempt to create it so future writes succeed
+                    try:
+                        if gcp_exc is not None and isinstance(exc, gcp_exc.NotFound):
+                            parent = f"projects/{project}"
+                            # Try to create the two weekly secrets (private/public) if missing
+                            for suffix in ("private", "public"):
+                                secret_id = _week_secret_id_for_kid(kid, suffix)
+                                try:
+                                    client.create_secret(
+                                        request={
+                                            "parent": parent,
+                                            "secret_id": secret_id,
+                                            "secret": {"replication": {"automatic": {}}},
+                                        }
+                                    )
+                                except Exception:
+                                    # ignore any errors creating the resource, best-effort
+                                    pass
+                    except Exception:
+                        # ignore errors while attempting to create
+                        pass
                     return None
                 # iterate versions (API returns an iterator; convert to list to inspect newest first)
                 vers = [v for v in versions]
