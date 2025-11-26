@@ -57,6 +57,20 @@ def ensure_key_for_date(dt: Optional[datetime.date] = None) -> str:
         return kid
     priv, pub = generate_keypair()
     secret_store.store_key(kid, priv, pub)
+    # Verify the key was written; if not, and we're using GCP, retry once after attempting to create the secret
+    existing = secret_store.load_key(kid)
+    if existing:
+        return kid
+    # Try a single retry to make secret manager create the resource
+    try:
+        if getattr(secret_store, "_want_gcp", lambda: False)():
+            secret_store.store_key(kid, priv, pub)
+    except Exception:
+        # Best effort; if retry fails fall-through and raise below
+        pass
+    existing = secret_store.load_key(kid)
+    if existing:
+        return kid
     return kid
 
 

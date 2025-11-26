@@ -34,7 +34,7 @@ router = APIRouter(
 # Firestore-backed jobs collection; we explicitly require Firestore to be
 # available and will return 504 (gateway timeout) if it is not.
 
- 
+
 def _get_firestore_client():
     try:
         proj = (

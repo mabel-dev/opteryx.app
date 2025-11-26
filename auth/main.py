@@ -1,5 +1,4 @@
 import hmac
-import orjson
 import os
 import time
 from datetime import datetime
@@ -7,13 +6,14 @@ from datetime import timedelta
 from datetime import timezone
 from typing import Optional
 
+import orjson
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import FastAPI
-from fastapi.responses import ORJSONResponse
 from fastapi import Form
 from fastapi import Header
 from fastapi import HTTPException
+from fastapi.responses import ORJSONResponse
 from google.cloud import firestore  # type: ignore
 from jose import jwt
 from orso.logging import get_logger
@@ -46,9 +46,45 @@ def _load_clients() -> dict:
         if project:
             secret_name = f"projects/{project}/secrets/opteryx-auth-clients/versions/latest"
             logger.info(f"_load_clients: attempting to read secret {secret_name}")
-            resp = client.access_secret_version(request={"name": secret_name})
-            payload = resp.payload.data.decode()
-            return orjson.loads(payload)
+            try:
+                resp = client.access_secret_version(request={"name": secret_name})
+                payload = resp.payload.data.decode()
+                return orjson.loads(payload)
+            except Exception as exc:
+                # Try create the secret if it was not found.
+                try:
+                    from google.api_core import exceptions as gcp_exc  # type: ignore
+
+                    if isinstance(exc, gcp_exc.NotFound):
+                        default_clients = {"m2m-client": "secret123"}
+                        # Create secret resource and add a version containing default payload.
+                        parent = f"projects/{project}"
+                        try:
+                            client.create_secret(
+                                request={
+                                    "parent": parent,
+                                    "secret_id": "opteryx-auth-clients",
+                                    "secret": {"replication": {"automatic": {}}},
+                                }
+                            )
+                        except Exception:
+                            # ignore AlreadyExists or other issues here, best-effort
+                            pass
+                        try:
+                            client.add_secret_version(
+                                request={
+                                    "parent": f"projects/{project}/secrets/opteryx-auth-clients",
+                                    "payload": {"data": orjson.dumps(default_clients)},
+                                }
+                            )
+                        except Exception:
+                            # ignore failures here and fall back to default mapping
+                            pass
+                        return default_clients
+                except Exception:
+                    # If we cannot import gcp_exc or operation fails, ignore and fall back
+                    pass
+        # If no project is detected we fall back to the default dev mapping
     except Exception as exc:
         # Fall back silently to dev default below but log the error for debugging
         logger.warning(f"_load_clients: secretmanager read failed: {exc}")

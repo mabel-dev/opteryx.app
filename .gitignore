@@ -26,5 +26,5 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-auth/keys/rotated/*.pem
+**.pem
 uv.lock
