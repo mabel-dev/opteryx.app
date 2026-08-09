@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Query engine issues
+    url: https://github.com/mabel-dev/opteryx/issues
+    about: Bugs and features in the Opteryx query engine itself.
+  - name: Documentation
+    url: https://docs.opteryx.app/
+    about: Read the opteryx.app documentation.
+  - name: Report a security vulnerability
+    url: https://github.com/mabel-dev/opteryx.app/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.

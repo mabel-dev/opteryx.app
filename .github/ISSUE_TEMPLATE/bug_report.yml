@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in the opteryx.app platform isn't working
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please search
+        [existing issues](https://github.com/mabel-dev/opteryx.app/issues?q=is%3Aissue)
+        first — including closed ones.
+
+        For a bug in the query engine itself, please use
+        [mabel-dev/opteryx](https://github.com/mabel-dev/opteryx/issues) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what did you see?
+      placeholder: Include the full error message, and any request or correlation ID.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: The SQL, API call, or steps in the UI.
+      render: sql
+    validations:
+      required: true
+  - type: input
+    id: when
+    attributes:
+      label: When did this happen?
+      placeholder: e.g. 2026-08-09 14:30 UTC
+  - type: input
+    id: versions
+    attributes:
+      label: Client versions
+      description: Versions of any client libraries or tools involved.
+      placeholder: e.g. opteryx-sqlalchemy 0.3.1, Python 3.12
