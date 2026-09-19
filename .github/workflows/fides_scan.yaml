@@ -1,0 +1,82 @@
+#
+# Fleet-wide secret scan. Every repository's own secrets_scanning.yaml keeps
+# its triggers and calls this, so the scan and the issue-filing behind it are
+# defined once instead of copied into ~23 repositories.
+#
+# Lives here because this is the repository the findings are filed against,
+# and because mabel-dev/opteryx.app is public - a reusable workflow in a public
+# repository is callable from private callers (worker.opteryx.app,
+# control.opteryx.app) without per-repository Actions access settings.
+#
+
+name: Fides Secret Scan
+
+on:
+  workflow_call:
+    inputs:
+      issue-repo:
+        description: 'Repository that findings are filed against.'
+        type: string
+        required: false
+        default: 'mabel-dev/opteryx.app'
+      verbose:
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      FIDES_ISSUE_TOKEN:
+        description: >
+          Fine-grained PAT with `issues: write` on issue-repo. The default
+          GITHUB_TOKEN is scoped to the calling repository and cannot open an
+          issue elsewhere. Optional - without it the scan still runs and still
+          fails, it just files nothing.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  fides:
+    name: Fides Secrets Scanner
+    runs-on: ubuntu-latest
+    steps:
+      # The reconciler belongs to the fleet's alerting rather than to Fides,
+      # so it is checked out from here instead of shipped with the action.
+      - name: Check out the issue reconciler
+        uses: actions/checkout@v4
+        with:
+          repository: mabel-dev/opteryx.app
+          ref: main
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+          path: fides-issue-sync
+
+      - name: fides-scanner
+        id: scan
+        uses: joocer/fides@main
+        with:
+          verbose: ${{ inputs.verbose }}
+          json-report: fides-report.json
+
+      # Issues are for findings that reached the default branch, on the two
+      # triggers nobody is watching: a push that merged one in, and the daily
+      # cron. A pull request's findings already surface as a failed check and
+      # inline annotations on the diff, in front of the person who can fix
+      # them - filing those would open an issue for every draft branch.
+      #
+      # always() is what lets this run at all: the scan step has already
+      # failed the job by this point, and that failure is still the job's
+      # verdict once this step finishes.
+      - name: File findings as issues
+        if: >
+          always() && steps.scan.outcome == 'failure' &&
+          github.event_name != 'pull_request' &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          FIDES_REPORT: ${{ github.workspace }}/fides-report.json
+          FIDES_ISSUE_REPO: ${{ inputs.issue-repo }}
+          FIDES_SOURCE_REPO: ${{ github.repository }}
+          FIDES_SHA: ${{ github.sha }}
+          FIDES_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FIDES_ISSUE_TOKEN: ${{ secrets.FIDES_ISSUE_TOKEN }}
+        run: python3 fides-issue-sync/.github/scripts/fides_issues.py
